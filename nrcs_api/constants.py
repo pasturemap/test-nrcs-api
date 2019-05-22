@@ -1,6 +1,6 @@
 API_URL = 'https://SDMDataAccess.sc.egov.usda.gov/Tabular/post.rest?format=json'
 
-VALUES_TEMPLATE = '''(geometry::STGeomFromText('{wkt}', 4326), '{uuid}')'''
+VALUES_TEMPLATE = '''(geometry::STGeomFromText('{wkt}', 4326).MakeValid(), '{uuid}')'''
 
 QUERY_TEMPLATE = '''
 DROP TABLE IF EXISTS #temp_pasturemap_paddock;
@@ -23,5 +23,17 @@ SELECT
 FROM #temp_pasturemap_paddock
 OUTER APPLY SDA_Get_Mupolygonkey_from_intersection_with_WktWgs84(#temp_pasturemap_paddock.coordinates.STAsText()) matching_polygon
 JOIN mupolygon ON mupolygon.mupolygonkey = matching_polygon.mupolygonkey
-JOIN component ON component.mukey = mupolygon.mukey;
+JOIN component ON component.mukey = mupolygon.mukey
+WHERE #temp_pasturemap_paddock.coordinates.STIsValid() = 1
+
+UNION ALL 
+
+SELECT 
+    #temp_pasturemap_paddock.paddock_uuid,
+    #temp_pasturemap_paddock.coordinates AS intersection,
+    NULL AS forage_low,
+    NULL AS forage_regular,
+    NULL AS forage_high
+FROM #temp_pasturemap_paddock
+WHERE #temp_pasturemap_paddock.coordinates.STIsValid() = 0;
 '''
